@@ -50,4 +50,4 @@ CRUD & validation:
 - Search, filters
 
 ## 4.ERD
-![ERD](path/to/erd.png)
+![ERD](erd.png)
