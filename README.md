@@ -51,3 +51,6 @@ CRUD & validation:
 
 ## 4.ERD
 ![ERD](erd.png)
+
+## 5.Database Schema
+![ERD](sc.png)
