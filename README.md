@@ -7,6 +7,18 @@
 
 # Ecommerce-Order-Manager-Project
 
+## Instructor:
+Dr. Hung Tran - DATCOM lab\
+https://fda.neu.edu.vn/fda-members/ts-tran-hung/
+
+## Team members:
+1. Nguyen Dinh Thang
+2. Bui Tuan Anh
+3. Pham Quang Vu
+
+All members are majoring in Artificial Intelligence of Faculty of Data Science and Artificial Intelligence, National Economics University, Vietnam.\
+https://fda.neu.edu.vn/nganh-tri-tue-nhan-tao/
+
 ## 1. Description
 ### 1.1.Real-world problem
 The shop currently stores orders in a single, unnormalized table. This leads to redundancy, update anomalies, and inconsistent reports. You will normalize to 3NF and build an application used by staff to manage customers, products, orders, and order items, run operational queries, and summarize revenue.
