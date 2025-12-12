@@ -1,0 +1,5 @@
+tkinter==0.1.0
+mysql-connector-python==8.1.0
+matplotlib==3.7.2
+python-dotenv==1.0.0
+python-dateutil==2.8.2

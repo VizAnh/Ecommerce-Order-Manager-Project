@@ -1,0 +1,512 @@
+from tkinter import *
+from tkinter import ttk
+import threading
+from app.models.product_model import (
+    create_product, get_product, update_product, delete_product, get_all_products
+)
+
+class ProductForms:
+    def __init__(self, main_app):
+        self.main_app = main_app
+    
+    def show_product_management(self):
+        """Show product management interface"""
+        # Clear existing elements
+        for widget in self.main_app.F1.winfo_children():
+            widget.destroy()
+        for widget in self.main_app.F2.winfo_children():
+            widget.destroy()
+
+        # Option Selection Panel
+        self.F3 = Frame(self.main_app.F1, bg=self.main_app.COLOUR4, padx=15, pady=15)
+        self.F3.place(width=self.main_app.ww/4, height=220)
+
+        Label(self.F3, text="Product Management", font=(self.main_app.FONT, 16, "bold"), 
+              bg=self.main_app.COLOUR4, fg=self.main_app.COLOUR5).pack(anchor='w', pady=(0, 10))
+
+        # CRUD Options
+        self.combo_product = ttk.Combobox(self.F3, font=self.main_app.FONT_STYLE1, state='readonly')
+        self.combo_product['values'] = [
+            '➕ Add New Product',
+            '🔍 Search Product by ID', 
+            '✏️ Edit Existing Product',
+            '🗑️ Delete Product'
+        ]
+        self.combo_product.pack(fill='x', pady=5)
+        self.combo_product.set('Select an action...')
+
+        self.combo_product.bind("<<ComboboxSelected>>", self.ProductOptions)
+
+        # Help text
+        help_label = Label(self.F3, text="💡 Product ID format: P followed by 9 digits (e.g., P000000001)",
+                          font=(self.main_app.FONT, 9), bg=self.main_app.COLOUR4, fg=self.main_app.COLOUR2)
+        help_label.pack(anchor='w', pady=(5, 0))
+        
+        price_help = Label(self.F3, text="💰 Price must be greater than 0",
+                          font=(self.main_app.FONT, 9), bg=self.main_app.COLOUR4, fg=self.main_app.COLOUR2)
+        price_help.pack(anchor='w', pady=(2, 0))
+
+        # Back button
+        Button(self.F3, text="← Back to Main Menu", font=self.main_app.FONT_STYLE1, 
+               bg=self.main_app.COLOUR2, fg=self.main_app.COLOUR5, 
+               command=self.main_app.mainScreen).pack(fill='x', pady=(15, 0))
+
+        # Form Panel
+        self.F4 = Frame(self.main_app.F1, bg=self.main_app.COLOUR3)
+        self.F4.place(y=220, width=self.main_app.ww/4, height=(self.main_app.wh - 220))
+        self.F4.pack_propagate(False)
+
+        # Show empty state initially
+        self.show_form_placeholder("Select an action from the dropdown above to manage products.")
+
+        # Table Panel
+        self.show_product_table()
+    
+    def show_form_placeholder(self, message):
+        """Show placeholder message in form area"""
+        for widget in self.F4.winfo_children():
+            widget.destroy()
+        
+        placeholder = Frame(self.F4, bg=self.main_app.COLOUR3)
+        placeholder.pack(expand=True, fill=BOTH)
+        
+        Label(placeholder, text=message, font=self.main_app.FONT_STYLE1,
+              bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5, wraplength=300).pack(expand=True)
+    
+    def ProductOptions(self, event):
+        """Handle product option selection"""
+        choice = event.widget.get()
+        
+        # Better way to detect the action
+        if 'Add' in choice:
+            choice_action = "Add"
+        elif 'Search' in choice:
+            choice_action = "Search" 
+        elif 'Edit' in choice:
+            choice_action = "Edit"
+        elif 'Delete' in choice:
+            choice_action = "Delete"
+        else:
+            choice_action = "Unknown"
+        
+        self.main_app.update_status(f"Product: {choice_action}")
+        
+        # Clear previous form
+        for widget in self.F4.winfo_children():
+            widget.destroy()
+        
+        # Refresh table
+        self.refresh_product_table()
+        
+        # Show appropriate form
+        if 'Add' in choice:
+            self.form_AddProduct()
+        elif 'Search' in choice:
+            self.form_SearchProduct()
+        elif 'Edit' in choice:
+            self.form_EditProduct()
+        elif 'Delete' in choice:
+            self.form_DeleteProduct()
+        else:
+            self.show_form_placeholder(f"No action available for: {choice}")
+        
+        # Force update to ensure UI refreshes
+        self.F4.update_idletasks()
+        self.F4.update()
+    
+    def form_AddProduct(self):
+        """Form for adding new product"""
+        def validate_product_id(text):
+            # Allow empty (for backspace/delete)
+            if text == "":
+                return True
+            # Check length
+            if len(text) > 10:  # P + 9 digits = 10 characters
+                return False
+            # If starts with P, the rest should be digits
+            if text.startswith('P'):
+                # After P, only digits allowed
+                rest = text[1:]
+                return rest == "" or rest.isdigit()
+            # If doesn't start with P yet, allow typing
+            return True
+        
+        def validate_price(text):
+            # Allow empty
+            if text == "":
+                return True
+            # Allow decimal point and digits
+            if text == ".":
+                return True
+            # Check if it's a valid float
+            try:
+                # Allow intermediate states like "0.", "123."
+                if text.endswith('.'):
+                    # Remove the dot and check if the rest are digits
+                    without_dot = text[:-1]
+                    return without_dot == "" or without_dot.isdigit()
+                # For complete numbers, check if positive
+                value = float(text)
+                return value >= 0  # Allow 0 during typing, we'll check >0 in submit
+            except ValueError:
+                return False
+
+        def submit(entries):
+            product_id = entries['pid'].get().strip()
+            product_name = entries['pname'].get().strip()
+            price = entries['price'].get().strip()
+            
+            # Validation
+            if not product_id:
+                self.show_form_error("❌ Product ID is required")
+                return
+            if not product_name:
+                self.show_form_error("❌ Product name is required")
+                return
+            if not price:
+                self.show_form_error("❌ Price is required")
+                return
+            if not (product_id.startswith('P') and product_id[1:].isdigit() and len(product_id) == 10):
+                self.show_form_error("❌ Product ID must be in format: P + 9 digits (e.g., P000000001)")
+                return
+            
+            try:
+                price_val = float(price)
+                if price_val <= 0:
+                    self.show_form_error("❌ Price must be greater than 0")
+                    return
+            except ValueError:
+                self.show_form_error("❌ Price must be a valid number")
+                return
+            
+            def execute_create():
+                try:
+                    msg = create_product(product_id, product_name, price_val)
+                    self.main_app.root.after(0, lambda: self.show_form_success(msg))
+                    self.main_app.root.after(0, self.refresh_product_table)
+                except Exception as e:
+                    self.main_app.root.after(0, lambda: self.show_form_error(f"Error: {str(e)}"))
+            
+            threading.Thread(target=execute_create, daemon=True).start()
+
+        fields = [
+            ("Product ID *", "pid", "entry"),
+            ("Product Name *", "pname", "entry"),
+            ("Price *", "price", "entry")
+        ]
+        
+        help_texts = {
+            'pid': "Format: P followed by 9 digits (e.g., P000000001)",
+            'pname': "Enter the name of the product",
+            'price': "Enter the price (must be greater than 0)"
+        }
+        
+        self.create_form("Add New Product", fields, "Create Product", submit, 
+                        validate_product_id, help_texts)
+    
+    def form_SearchProduct(self):
+        """Form for searching product by ID"""
+        self.load_form()
+
+        frame = Frame(self.F4, bg=self.main_app.COLOUR3, padx=10, pady=20)
+        frame.pack(fill=BOTH, expand=True)
+
+        Label(frame, text="Search Product", font=self.main_app.H2_STYLE, 
+              bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5).pack(anchor='w', pady=(0, 20))
+
+        # Search input
+        input_frame = Frame(frame, bg=self.main_app.COLOUR3)
+        input_frame.pack(fill='x', pady=10)
+        
+        Label(input_frame, text="Product ID:", font=self.main_app.FONT_STYLE1, 
+              bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5).pack(anchor='w')
+        
+        pid_entry = Entry(input_frame, font=self.main_app.FONT_STYLE1, 
+                         bg=self.main_app.COLOUR2, fg=self.main_app.COLOUR5)
+        pid_entry.pack(fill='x', pady=(5, 0))
+        pid_entry.focus_set()
+
+        # Help text
+        Label(input_frame, text="Enter Product ID to search (e.g., P000000001)", 
+              font=(self.main_app.FONT, 10), bg=self.main_app.COLOUR3, 
+              fg=self.main_app.COLOUR4).pack(anchor='w', pady=(2, 0))
+
+        # Results label
+        results_label = Label(frame, text="", font=(self.main_app.FONT, 10), 
+                             bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5)
+        results_label.pack(anchor='w', pady=(10, 0))
+
+        def search():
+            product_id = pid_entry.get().strip()
+            if not product_id:
+                results_label.config(text="❌ Please enter a Product ID", fg="red")
+                return
+            
+            # Show loading
+            loading_frame = Frame(frame, bg=self.main_app.COLOUR3)
+            loading_frame.pack(pady=10)
+            Label(loading_frame, text="Searching...", font=self.main_app.FONT_STYLE1, 
+                  bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5).pack()
+            
+            def execute_search():
+                try:
+                    result = get_product(product_id)
+                    self.main_app.root.after(0, loading_frame.destroy)
+                    
+                    if isinstance(result, list) and len(result) > 0:
+                        self.main_app.root.after(0, lambda: self.product_table.delete(*self.product_table.get_children()))
+                        for row in result:
+                            self.main_app.root.after(0, lambda r=row: self.product_table.insert("", END, values=(
+                                r["ProductID"], r["ProductName"], f"${r['Price']:.2f}")))
+                        self.main_app.root.after(0, lambda: results_label.config(text=f"✅ Found {len(result)} product(s)", fg="green"))
+                    else:
+                        self.main_app.root.after(0, lambda: results_label.config(text="❌ No product found with that ID", fg="red"))
+                        self.main_app.root.after(0, self.refresh_product_table)
+                except Exception as e:
+                    self.main_app.root.after(0, loading_frame.destroy)
+                    self.main_app.root.after(0, lambda: results_label.config(text=f"❌ Error: {str(e)}", fg="red"))
+            
+            threading.Thread(target=execute_search, daemon=True).start()
+
+        # Buttons
+        button_frame = Frame(frame, bg=self.main_app.COLOUR3)
+        button_frame.pack(fill='x', pady=20)
+        
+        Button(button_frame, text="🔍 Search", font=self.main_app.FONT_STYLE1,
+               bg=self.main_app.COLOUR5, fg="white", command=search).pack(side='left', padx=(0, 10))
+        
+        Button(button_frame, text="🔄 Reset", font=self.main_app.FONT_STYLE1,
+               bg=self.main_app.COLOUR4, fg="white", command=self.refresh_product_table).pack(side='left')
+        
+        # Bind Enter key to search
+        pid_entry.bind('<Return>', lambda e: search())
+    
+    def form_EditProduct(self):
+        """Form for editing existing product"""
+        def validate_price(text):
+            if not text:
+                return True
+            try:
+                if float(text) <= 0:
+                    return False
+                return True
+            except ValueError:
+                return False
+
+        def submit(entries):
+            product_id = entries['pid'].get().strip()
+            product_name = entries['pname'].get().strip()
+            price = entries['price'].get().strip()
+            
+            # Validation
+            if not product_id:
+                self.show_form_error("❌ Product ID is required")
+                return
+            if not product_name:
+                self.show_form_error("❌ Product name is required")
+                return
+            if not price:
+                self.show_form_error("❌ Price is required")
+                return
+            
+            try:
+                price_val = float(price)
+                if price_val <= 0:
+                    self.show_form_error("❌ Price must be greater than 0")
+                    return
+            except ValueError:
+                self.show_form_error("❌ Price must be a valid number")
+                return
+            
+            def execute_update():
+                try:
+                    msg = update_product(product_id, product_name, price_val)
+                    self.main_app.root.after(0, lambda: self.show_form_success(msg))
+                    self.main_app.root.after(0, self.refresh_product_table)
+                except Exception as e:
+                    self.main_app.root.after(0, lambda: self.show_form_error(f"Error: {str(e)}"))
+            
+            threading.Thread(target=execute_update, daemon=True).start()
+
+        fields = [
+            ("Product ID *", "pid", "entry"),
+            ("New Product Name *", "pname", "entry"),
+            ("New Price *", "price", "entry")
+        ]
+        
+        help_texts = {
+            'pid': "Enter the Product ID you want to edit",
+            'pname': "Enter the new name for this product",
+            'price': "Enter the new price (must be greater than 0)"
+        }
+        
+        self.create_form("Edit Product", fields, "Update Product", submit, help_texts=help_texts)
+    
+    def form_DeleteProduct(self):
+        """Form for deleting product"""
+        def submit(entries):
+            product_id = entries['pid'].get().strip()
+            
+            if not product_id:
+                self.show_form_error("❌ Product ID is required")
+                return
+            
+            # Confirm deletion
+            from tkinter import messagebox
+            if not messagebox.askyesno("Confirm Delete", 
+                                     f"Are you sure you want to delete product {product_id}?\nThis action cannot be undone."):
+                return
+            
+            def execute_delete():
+                try:
+                    msg = delete_product(product_id)
+                    self.main_app.root.after(0, lambda: self.show_form_success(msg))
+                    self.main_app.root.after(0, self.refresh_product_table)
+                except Exception as e:
+                    self.main_app.root.after(0, lambda: self.show_form_error(f"Error: {str(e)}"))
+            
+            threading.Thread(target=execute_delete, daemon=True).start()
+
+        fields = [
+            ("Product ID *", "pid", "entry")
+        ]
+        
+        help_texts = {
+            'pid': "Enter the Product ID you want to delete"
+        }
+        
+        self.create_form("Delete Product", fields, "Delete Product", submit, help_texts=help_texts)
+    
+    def load_form(self):
+        """Clear form area"""
+        for widget in self.F4.winfo_children():
+            widget.destroy()
+    
+    def create_form(self, title, fields, submit_text, submit_command, validate_func=None, help_texts=None):
+        """Create a standardized form"""
+        self.load_form()
+        
+        frame = Frame(self.F4, bg=self.main_app.COLOUR3, padx=15, pady=15)
+        frame.pack(fill=BOTH, expand=True)
+        
+        # Title
+        Label(frame, text=title, font=self.main_app.H2_STYLE, 
+            bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5).pack(anchor='w', pady=(0, 20))
+        
+        entries = {}
+        
+        for i, (label_text, key, field_type) in enumerate(fields):
+            field_frame = Frame(frame, bg=self.main_app.COLOUR3)
+            field_frame.pack(fill='x', pady=8)
+            
+            # Label
+            Label(field_frame, text=label_text, font=self.main_app.FONT_STYLE1, 
+                bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR5).pack(anchor='w')
+            
+            # Help text
+            if help_texts and key in help_texts:
+                Label(field_frame, text=help_texts[key], font=(self.main_app.FONT, 9), 
+                    bg=self.main_app.COLOUR3, fg=self.main_app.COLOUR4).pack(anchor='w')
+            
+            # Input field
+            if field_type == "entry":
+                entry = Entry(field_frame, font=self.main_app.FONT_STYLE1, 
+                            bg=self.main_app.COLOUR2, fg=self.main_app.COLOUR5)
+                entry.pack(fill='x', pady=(5, 0))
+                
+                # Add validation if provided
+                if validate_func:
+                    validate_cmd = (field_frame.register(validate_func), '%P')
+                    entry.config(validate="key", validatecommand=validate_cmd)
+                
+                entries[key] = entry
+                
+            elif field_type == "combobox":
+                # Create combobox instead of entry
+                combo = ttk.Combobox(field_frame, font=self.main_app.FONT_STYLE1, 
+                                    state='readonly')
+                combo.pack(fill='x', pady=(5, 0))
+                entries[key] = combo
+        
+        # Message area
+        self.msg_label = Label(frame, text="", font=(self.main_app.FONT, 10), 
+                            bg=self.main_app.COLOUR3, fg="green")
+        self.msg_label.pack(anchor='w', pady=(10, 0))
+        
+        # Submit button
+        Button(frame, text=submit_text, font=self.main_app.FONT_STYLE1,
+            bg=self.main_app.COLOUR5, fg="white", 
+            command=lambda: submit_command(entries)).pack(fill='x', pady=(20, 0))
+        
+        return entries
+    
+    def show_form_error(self, message):
+        """Show error message in form"""
+        self.msg_label.config(text=message, fg="red")
+    
+    def show_form_success(self, message):
+        """Show success message in form"""
+        self.msg_label.config(text=message, fg="green")
+    
+    def show_product_table(self):
+        """Show product table"""
+        self.refresh_product_table()
+    
+    def refresh_product_table(self):
+        """Refresh product table with all data"""
+        # Clear table
+        for widget in self.main_app.F2.winfo_children():
+            widget.destroy()
+        
+        # Create table frame
+        table_frame = Frame(self.main_app.F2, bg=self.main_app.COLOUR4)
+        table_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Title
+        Label(table_frame, text="Products", font=self.main_app.H2_STYLE,
+              bg=self.main_app.COLOUR4, fg="white").pack(anchor='w', pady=(0, 10))
+        
+        # Create table
+        self.product_table = ttk.Treeview(table_frame, columns=("ProductID", "ProductName", "Price"), 
+                                          show="headings", style="Custom.Treeview")
+        
+        self.product_table.heading("ProductID", text="Product ID")
+        self.product_table.heading("ProductName", text="Product Name")
+        self.product_table.heading("Price", text="Price")
+        
+        self.product_table.column("ProductID", width=150, anchor="w")
+        self.product_table.column("ProductName", width=300, anchor="w")
+        self.product_table.column("Price", width=150, anchor="w")
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.product_table.yview)
+        self.product_table.configure(yscrollcommand=scrollbar.set)
+        
+        self.product_table.pack(side='left', fill=BOTH, expand=True)
+        scrollbar.pack(side='right', fill='y')
+        
+        # Load data
+        def load_data():
+            try:
+                customers = get_all_products()
+                self.main_app.root.after(0, lambda: self.populate_table(customers))
+            except Exception as e:
+                self.main_app.root.after(0, lambda: self.show_table_error(f"Error loading products: {str(e)}"))
+        
+        threading.Thread(target=load_data, daemon=True).start()
+    
+    def populate_table(self, data):
+        """Populate table with data"""
+        self.product_table.delete(*self.product_table.get_children())
+        
+        if not data:
+            self.product_table.insert("", "end", values=("No products found", "Add products using the form"))
+            return
+        
+        for row in data:
+            self.product_table.insert("", "end", values=(row["ProductID"], row["ProductName"], row["Price"]))
+    
+    def show_table_error(self, message):
+        """Show error in table"""
+        self.product_table.delete(*self.product_table.get_children())
+        self.product_table.insert("", "end", values=("Error", message))
