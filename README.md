@@ -57,7 +57,7 @@ CRUD & validation:
 
 ## 6. Some screenshots of GUI
 ![GUI](images/gui_main.png)
-![Order Table](images/filter_search.png)
+![Filter and search](images/filter_search.png)
 
 ## 7.Installation
 First, download and extract the project, then provide DB_HOST, DB_USER, and DB_PASS in the .env file (remove the .example extension). After that, run the main.py file. If it doesn't work, you can move main.py out of the “app” folder and run it again.
