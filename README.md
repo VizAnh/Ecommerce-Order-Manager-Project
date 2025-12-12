@@ -63,14 +63,15 @@ CRUD & validation:
 First, download and extract the project, then provide DB_HOST, DB_USER, and DB_PASS in the .env file (remove the .example extension). After that, run the main.py file. If it doesn't work, you can move main.py out of the “app” folder and run it again.
 
 ## 8. Limitations
-•	The GUI still has some display issues
-•	No authentication or user roles
-•	Limited error handling
-•	Does not support merge-lines for OrderDetails
+- Basic GUI: The interface is functional but lacks advanced UX features (dynamic filtering, input validation, consistent design).
+
+- Passive Database Layer: No triggers, stored procedures, or built-in business logic; all processing relies on the application layer.
+
+- No Security Framework: Missing authentication and authorization, making the system unsuitable for sensitive data.
+
+- Academic Scope: Required knowledge exceeds a typical term project; limited understanding restricts deeper analysis.
 
 ## 9. Future Improvements
-Possible enhancements:
-•	Add login system
-•	Add full reporting dashboard
-•	Add export to Excel/PDF
-•	Improve UI/UX
+-	Add login system
+-	Add full reporting dashboard
+-	Improve UI/UX
