@@ -50,7 +50,8 @@ CRUD & validation:
 - Search, filters
 
 ## 4.ERD
-![ERD](erd.png)
+![ERD](images/erd.png)
 
 ## 5.Database Schema
-![Database Schema](sc.png)
+![Database Schema](images/sc.png)
+
