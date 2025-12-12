@@ -56,7 +56,7 @@ CRUD & validation:
 ![Database Schema](images/sc.png)
 
 ## 6. Some screenshots of GUI
-![GUI](images/gui_main.png)
+![GUI](images/GUI_main.png)
 ![Filter and search](images/filter_search.png)
 
 ## 7.Installation
