@@ -62,3 +62,15 @@ CRUD & validation:
 ## 7.Installation
 First, download and extract the project, then provide DB_HOST, DB_USER, and DB_PASS in the .env file (remove the .example extension). After that, run the main.py file. If it doesn't work, you can move main.py out of the “app” folder and run it again.
 
+## 8. Limitations
+•	The GUI still has some display issues
+•	No authentication or user roles
+•	Limited error handling
+•	Does not support merge-lines for OrderDetails
+
+## 9. Future Improvements
+Possible enhancements:
+•	Add login system
+•	Add full reporting dashboard
+•	Add export to Excel/PDF
+•	Improve UI/UX
